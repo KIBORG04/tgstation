@@ -4,7 +4,7 @@
 	desc = "Common iron ore often found in sedimentary and igneous layers of the crust."
 	color = "#878687"
 	categories = list(MAT_CATEGORY_ORE = TRUE, MAT_CATEGORY_RIGID = TRUE, MAT_CATEGORY_BASE_RECIPES = TRUE, MAT_CATEGORY_ITEM_MATERIAL=TRUE)
-	sheet_type = /obj/item/stack/sheet/metal
+	sheet_type = /obj/item/stack/sheet/iron
 	value_per_unit = 0.0025
 
 /datum/material/iron/on_accidental_mat_consumption(mob/living/carbon/victim, obj/item/source_item)
@@ -120,7 +120,7 @@ Unless you know what you're doing, only use the first three numbers. They're in 
 	. = ..()
 	if(ismovable(source))
 		source.AddElement(/datum/element/firestacker, amount=1)
-		source.AddComponent(/datum/component/explodable, 0, 0, amount / 2500, amount / 1250)
+		source.AddComponent(/datum/component/explodable, 0, 0, amount / 2500, 0, amount / 1250)
 
 /datum/material/plasma/on_removed(atom/source, amount, material_flags)
 	. = ..()
@@ -161,7 +161,7 @@ Unless you know what you're doing, only use the first three numbers. They're in 
 
 /datum/material/bananium/on_applied(atom/source, amount, material_flags)
 	. = ..()
-	source.AddComponent(/datum/component/squeak, list('sound/items/bikehorn.ogg'=1), 50, falloff_exponent = 20)
+	source.LoadComponent(/datum/component/squeak, list('sound/items/bikehorn.ogg'=1), 50, 0, 0, 0, 0, 20, 0)
 	source.AddComponent(/datum/component/slippery, min(amount / 10, 80))
 
 /datum/material/bananium/on_removed(atom/source, amount, material_flags)
@@ -180,7 +180,7 @@ Unless you know what you're doing, only use the first three numbers. They're in 
 	desc = "Titanium"
 	color = "#b3c0c7"
 	strength_modifier = 1.3
-	categories = list(MAT_CATEGORY_ORE = TRUE, MAT_CATEGORY_RIGID = TRUE, MAT_CATEGORY_BASE_RECIPES = TRUE)
+	categories = list(MAT_CATEGORY_ORE = TRUE, MAT_CATEGORY_RIGID = TRUE, MAT_CATEGORY_BASE_RECIPES = TRUE, MAT_CATEGORY_ITEM_MATERIAL=TRUE)
 	sheet_type = /obj/item/stack/sheet/mineral/titanium
 	value_per_unit = 0.0625
 	beauty_modifier = 0.05
@@ -212,7 +212,7 @@ Unless you know what you're doing, only use the first three numbers. They're in 
 	color = "#caccd9"
 	strength_modifier = 0.85
 	sheet_type = /obj/item/stack/sheet/plastic
-	categories = list(MAT_CATEGORY_RIGID = TRUE, MAT_CATEGORY_BASE_RECIPES = TRUE)
+	categories = list(MAT_CATEGORY_RIGID = TRUE, MAT_CATEGORY_BASE_RECIPES = TRUE, MAT_CATEGORY_ITEM_MATERIAL=TRUE)
 	value_per_unit = 0.0125
 	beauty_modifier = -0.01
 	armor_modifiers = list(MELEE = 1.5, BULLET = 1.1, LASER = 0.3, ENERGY = 0.5, BOMB = 1, BIO = 1, RAD = 1, FIRE = 1.1, ACID = 1)
@@ -236,7 +236,7 @@ Unless you know what you're doing, only use the first three numbers. They're in 
 	color = "#bb8e53"
 	strength_modifier = 0.5
 	sheet_type = /obj/item/stack/sheet/mineral/wood
-	categories = list(MAT_CATEGORY_RIGID = TRUE, MAT_CATEGORY_BASE_RECIPES = TRUE)
+	categories = list(MAT_CATEGORY_RIGID = TRUE, MAT_CATEGORY_BASE_RECIPES = TRUE, MAT_CATEGORY_ITEM_MATERIAL=TRUE)
 	value_per_unit = 0.01
 	beauty_modifier = 0.1
 	armor_modifiers = list(MELEE = 1.1, BULLET = 1.1, LASER = 0.4, ENERGY = 0.4, BOMB = 1, BIO = 0.2, RAD = 0, FIRE = 0, ACID = 0.3)
@@ -267,7 +267,7 @@ Unless you know what you're doing, only use the first three numbers. They're in 
 	desc = "A powerful material made out of magic, I mean science!"
 	color = "#6d7e8e"
 	strength_modifier = 1.5
-	categories = list(MAT_CATEGORY_RIGID = TRUE, MAT_CATEGORY_BASE_RECIPES = TRUE)
+	categories = list(MAT_CATEGORY_RIGID = TRUE, MAT_CATEGORY_BASE_RECIPES = TRUE, MAT_CATEGORY_ITEM_MATERIAL=TRUE)
 	sheet_type = /obj/item/stack/sheet/mineral/adamantine
 	value_per_unit = 0.25
 	beauty_modifier = 0.4
@@ -282,7 +282,7 @@ Unless you know what you're doing, only use the first three numbers. They're in 
 	name = "mythril"
 	desc = "How this even exists is byond me"
 	color = "#f2d5d7"
-	categories = list(MAT_CATEGORY_RIGID = TRUE, MAT_CATEGORY_BASE_RECIPES = TRUE)
+	categories = list(MAT_CATEGORY_RIGID = TRUE, MAT_CATEGORY_BASE_RECIPES = TRUE, MAT_CATEGORY_ITEM_MATERIAL=TRUE)
 	sheet_type = /obj/item/stack/sheet/mineral/mythril
 	value_per_unit = 0.75
 	strength_modifier = 1.2
@@ -342,17 +342,6 @@ Unless you know what you're doing, only use the first three numbers. They're in 
 /datum/material/metalhydrogen/on_accidental_mat_consumption(mob/living/carbon/victim, obj/item/source_item)
 	victim.apply_damage(15, BRUTE, BODY_ZONE_HEAD, wound_bonus = 7)
 	return TRUE
-
-/datum/material/otherworld_crystal
-	name = "Otherworld Crystal"
-	desc = "An unkown crystal from an unkown dimension"
-	color = COLOR_YELLOW
-	strength_modifier = 0.95
-	categories = list(MAT_CATEGORY_RIGID = TRUE, MAT_CATEGORY_ITEM_MATERIAL=TRUE)
-	sheet_type = /obj/item/stack/sheet/otherworld_crystal
-	value_per_unit = 0.25
-	beauty_modifier = 0.4
-	alpha = 150
 
 //I don't like sand. It's coarse, and rough, and irritating, and it gets everywhere.
 /datum/material/sand
@@ -423,7 +412,7 @@ Unless you know what you're doing, only use the first three numbers. They're in 
 	desc = "Clock Cult? Never heard of it."
 	color = "#92661A"
 	categories = list(MAT_CATEGORY_RIGID = TRUE, MAT_CATEGORY_ITEM_MATERIAL=TRUE)
-	sheet_type = /obj/item/stack/tile/bronze
+	sheet_type = /obj/item/stack/sheet/bronze
 	value_per_unit = 0.025
 	armor_modifiers = list(MELEE = 1, BULLET = 1, LASER = 1, ENERGY = 1, BOMB = 1, BIO = 1, RAD = 1.5, FIRE = 1.5, ACID = 1.5)
 	beauty_modifier = 0.2
@@ -497,3 +486,18 @@ Unless you know what you're doing, only use the first three numbers. They're in 
 	beauty_modifier = 0.2
 	turf_sound_override = FOOTSTEP_WOOD
 	texture_layer_icon_state = "bamboo"
+
+/datum/material/zaukerite
+	name = "zaukerite"
+	desc = "A light absorbing crystal"
+	color = COLOR_ALMOST_BLACK
+	categories = list(MAT_CATEGORY_RIGID = TRUE, MAT_CATEGORY_ITEM_MATERIAL=TRUE)
+	sheet_type = /obj/item/stack/sheet/mineral/zaukerite
+	value_per_unit = 0.45
+	armor_modifiers = list(MELEE = 0.9, BULLET = 0.9, LASER = 1.75, ENERGY = 1.75, BOMB = 0.5, BIO = 1, RAD = 1.75, FIRE = 0.1, ACID = 1)
+	beauty_modifier = 0.001
+
+/datum/material/zaukerite/on_accidental_mat_consumption(mob/living/carbon/victim, obj/item/source_item)
+	victim.apply_damage(30, BURN, BODY_ZONE_HEAD, wound_bonus = 5)
+	source_item?.reagents?.add_reagent(/datum/reagent/toxin/plasma, source_item.reagents.total_volume*5)
+	return TRUE

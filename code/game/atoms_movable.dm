@@ -12,10 +12,10 @@
 	var/throw_speed = 2 //How many tiles to move per ds when being thrown. Float values are fully supported
 	var/throw_range = 7
 	///Max range this atom can be thrown via telekinesis
-	var/tk_throw_range = 1
+	var/tk_throw_range = 10
 	var/mob/pulledby = null
 	var/initial_language_holder = /datum/language_holder
-	var/datum/language_holder/language_holder	// Mindless mobs and objects need language too, some times. Mind holder takes prescedence.
+	var/datum/language_holder/language_holder // Mindless mobs and objects need language too, some times. Mind holder takes prescedence.
 	var/verb_say = "says"
 	var/verb_ask = "asks"
 	var/verb_exclaim = "exclaims"
@@ -33,10 +33,10 @@
 	/// If false makes [CanPass][/atom/proc/CanPass] call [CanPassThrough][/atom/movable/proc/CanPassThrough] on this type instead of using default behaviour
 	var/generic_canpass = TRUE
 	var/moving_diagonally = 0 //0: not doing a diagonal move. 1 and 2: doing the first/second step of the diagonal move
-	var/atom/movable/moving_from_pull		//attempt to resume grab after moving instead of before.
+	var/atom/movable/moving_from_pull //attempt to resume grab after moving instead of before.
 	var/list/client_mobs_in_contents // This contains all the client mobs within this container
-	var/list/acted_explosions	//for explosion dodging
-	var/datum/forced_movement/force_moving = null	//handled soley by forced_movement.dm
+	var/list/area_sensitive_contents // A (nested) list of contents that need to be sent signals to when moving between areas. Can include src.
+	var/datum/forced_movement/force_moving = null //handled soley by forced_movement.dm
 
 	/**
 	  * In case you have multiple types, you automatically use the most useful one.
@@ -58,8 +58,6 @@
 
 	/// Either FALSE, [EMISSIVE_BLOCK_GENERIC], or [EMISSIVE_BLOCK_UNIQUE]
 	var/blocks_emissive = FALSE
-	/// The plane this uses for emissive effects and emissive blockers
-	var/emissive_blocker_plane = EMISSIVE_PLANE
 	///Internal holder for emissive blocker object, do not use directly use blocks_emissive
 	var/atom/movable/emissive_blocker/em_block
 
@@ -79,11 +77,15 @@
 	. = ..()
 	switch(blocks_emissive)
 		if(EMISSIVE_BLOCK_GENERIC)
-			AddElement(/datum/element/emissive_blocker, emissive_blocker_plane)
+			var/mutable_appearance/gen_emissive_blocker = mutable_appearance(icon, icon_state, plane = EMISSIVE_PLANE, alpha = src.alpha)
+			gen_emissive_blocker.color = GLOB.em_block_color
+			gen_emissive_blocker.dir = dir
+			gen_emissive_blocker.appearance_flags |= appearance_flags
+			add_overlay(list(gen_emissive_blocker))
 		if(EMISSIVE_BLOCK_UNIQUE)
 			render_target = ref(src)
-			em_block = new(src, render_target, emissive_blocker_plane)
-			vis_contents += em_block
+			em_block = new(src, render_target)
+			add_overlay(list(em_block))
 	if(opacity)
 		AddElement(/datum/element/light_blocking)
 	switch(light_system)
@@ -127,6 +129,31 @@
 	LAZYCLEARLIST(client_mobs_in_contents)
 
 	moveToNullspace()
+
+	//We add ourselves to this list, best to clear it out
+	//DO it after moveToNullspace so memes can be had
+	LAZYCLEARLIST(area_sensitive_contents)
+
+	vis_contents.Cut()
+
+/atom/movable/proc/update_emissive_block()
+	if(!blocks_emissive)
+		return
+	else if (blocks_emissive == EMISSIVE_BLOCK_GENERIC)
+		var/mutable_appearance/gen_emissive_blocker = mutable_appearance(icon, icon_state, plane = EMISSIVE_PLANE, alpha = src.alpha)
+		gen_emissive_blocker.color = GLOB.em_block_color
+		gen_emissive_blocker.dir = dir
+		gen_emissive_blocker.appearance_flags |= appearance_flags
+		return gen_emissive_blocker
+	else if(blocks_emissive == EMISSIVE_BLOCK_UNIQUE)
+		if(!em_block)
+			render_target = ref(src)
+			em_block = new(src, render_target)
+		return em_block
+
+/atom/movable/update_overlays()
+	. = ..()
+	. += update_emissive_block()
 
 /atom/movable/proc/can_zFall(turf/source, levels = 1, turf/target, direction)
 	if(!direction)
@@ -175,7 +202,7 @@
 	var/static/list/banned_edits = list("step_x" = TRUE, "step_y" = TRUE, "step_size" = TRUE, "bounds" = TRUE)
 	var/static/list/careful_edits = list("bound_x" = TRUE, "bound_y" = TRUE, "bound_width" = TRUE, "bound_height" = TRUE)
 	if(banned_edits[var_name])
-		return FALSE	//PLEASE no.
+		return FALSE //PLEASE no.
 	if((careful_edits[var_name]) && (var_value % world.icon_size) != 0)
 		return FALSE
 
@@ -258,6 +285,7 @@
 
 /atom/movable/proc/stop_pulling()
 	if(pulling)
+		SEND_SIGNAL(pulling, COMSIG_ATOM_NO_LONGER_PULLED, src)
 		pulling.set_pulledby(null)
 		setGrabState(GRAB_PASSIVE)
 		pulling = null
@@ -313,7 +341,7 @@
 		if(pulling.anchored || pulling.move_resist > move_force)
 			stop_pulling()
 			return
-	if(pulledby && moving_diagonally != FIRST_DIAG_STEP && get_dist(src, pulledby) > 1)		//separated from our puller and not in the middle of a diagonal move.
+	if(pulledby && moving_diagonally != FIRST_DIAG_STEP && get_dist(src, pulledby) > 1) //separated from our puller and not in the middle of a diagonal move.
 		pulledby.stop_pulling()
 
 
@@ -324,6 +352,25 @@
 	for(var/m in buckled_mobs)
 		var/mob/buckled_mob = m
 		buckled_mob.set_glide_size(target)
+
+/**
+ * meant for movement with zero side effects. only use for objects that are supposed to move "invisibly" (like camera mobs or ghosts)
+ * if you want something to move onto a tile with a beartrap or recycler or tripmine or mouse without that object knowing about it at all, use this
+ * most of the time you want forceMove()
+ */
+/atom/movable/proc/abstract_move(atom/new_loc)
+	var/atom/old_loc = update_loc(new_loc)
+	Moved(old_loc)
+
+/**
+ * meant to be used for all location changes. any instances of setting loc directly (for movables) should instead use this
+ * do NOT use this directly, use either Move() or abstract_move() or forceMove()
+ */
+/atom/movable/proc/update_loc(atom/new_loc)
+	SHOULD_NOT_OVERRIDE(TRUE)
+	var/old_loc = loc
+	loc = new_loc
+	SEND_SIGNAL(src, COMSIG_MOVABLE_LOCATION_CHANGE, old_loc)
 
 ////////////////////////////////////////
 // Here's where we rewrite how byond handles movement except slightly different
@@ -353,27 +400,17 @@
 	var/atom/oldloc = loc
 	var/area/oldarea = get_area(oldloc)
 	var/area/newarea = get_area(newloc)
-	loc = newloc
+
+	update_loc(newloc)
+
 	. = TRUE
 	oldloc.Exited(src, newloc)
 	if(oldarea != newarea)
 		oldarea.Exited(src, newloc)
 
-	for(var/i in oldloc)
-		if(i == src) // Multi tile objects
-			continue
-		var/atom/movable/thing = i
-		thing.Uncrossed(src)
-
 	newloc.Entered(src, oldloc)
 	if(oldarea != newarea)
 		newarea.Entered(src, oldloc)
-
-	for(var/i in loc)
-		if(i == src) // Multi tile objects
-			continue
-		var/atom/movable/thing = i
-		thing.Crossed(src)
 
 ////////////////////////////////////////
 
@@ -457,8 +494,8 @@
 			stop_pulling()
 		else
 			var/pull_dir = get_dir(src, pulling)
-			//puller and pullee more than one tile away or in diagonal position
-			if(get_dist(src, pulling) > 1 || (moving_diagonally != SECOND_DIAG_STEP && ((pull_dir - 1) & pull_dir)))
+			//puller and pullee more than one tile away or in diagonal position and whatever the pullee is pulling isn't already moving from a pull as it'll most likely result in an infinite loop a la ouroborus.
+			if(!pulling.pulling?.moving_from_pull && (get_dist(src, pulling) > 1 || (moving_diagonally != SECOND_DIAG_STEP && ((pull_dir - 1) & pull_dir))))
 				pulling.moving_from_pull = src
 				pulling.Move(T, get_dir(pulling, T), glide_size) //the pullee tries to reach our previous position
 				pulling.moving_from_pull = null
@@ -495,23 +532,47 @@
 /atom/movable/Cross(atom/movable/AM)
 	. = TRUE
 	SEND_SIGNAL(src, COMSIG_MOVABLE_CROSS, AM)
+	SEND_SIGNAL(AM, COMSIG_MOVABLE_CROSS_OVER, src)
 	return CanPass(AM, AM.loc, TRUE)
 
-//oldloc = old location on atom, inserted when forceMove is called and ONLY when forceMove is called!
+///default byond proc that is deprecated for us in lieu of signals. do not call
 /atom/movable/Crossed(atom/movable/AM, oldloc)
-	SHOULD_CALL_PARENT(TRUE)
-	. = ..()
-	SEND_SIGNAL(src, COMSIG_MOVABLE_CROSSED, AM)
+	SHOULD_NOT_OVERRIDE(TRUE)
+	CRASH("atom/movable/Crossed() was called!")
 
-/atom/movable/Uncross(atom/movable/AM, atom/newloc)
-	. = ..()
-	if(SEND_SIGNAL(src, COMSIG_MOVABLE_UNCROSS, AM) & COMPONENT_MOVABLE_BLOCK_UNCROSS)
-		return FALSE
-	if(isturf(newloc) && !CheckExit(AM, newloc))
-		return FALSE
+/**
+ * `Uncross()` is a default BYOND proc that is called when something is *going*
+ * to exit this atom's turf. It is prefered over `Uncrossed` when you want to
+ * deny that movement, such as in the case of border objects, objects that allow
+ * you to walk through them in any direction except the one they block
+ * (think side windows).
+ *
+ * While being seemingly harmless, most everything doesn't actually want to
+ * use this, meaning that we are wasting proc calls for every single atom
+ * on a turf, every single time something exits it, when basically nothing
+ * cares.
+ *
+ * This overhead caused real problems on Sybil round #159709, where lag
+ * attributed to Uncross was so bad that the entire master controller
+ * collapsed and people made Among Us lobbies in OOC.
+ *
+ * If you want to replicate the old `Uncross()` behavior, the most apt
+ * replacement is [`/datum/element/connect_loc`] while hooking onto
+ * [`COMSIG_ATOM_EXIT`].
+ */
+/atom/movable/Uncross()
+	SHOULD_NOT_OVERRIDE(TRUE)
+	CRASH("Uncross() should not be being called, please read the doc-comment for it for why.")
 
+/**
+ * default byond proc that is normally called on everything inside the previous turf
+ * a movable was in after moving to its current turf
+ * this is wasteful since the vast majority of objects do not use Uncrossed
+ * use connect_loc to register to COMSIG_ATOM_EXITED instead
+ */
 /atom/movable/Uncrossed(atom/movable/AM)
-	SEND_SIGNAL(src, COMSIG_MOVABLE_UNCROSSED, AM)
+	SHOULD_NOT_OVERRIDE(TRUE)
+	CRASH("/atom/movable/Uncrossed() was called")
 
 /atom/movable/Bump(atom/A)
 	if(!A)
@@ -524,6 +585,33 @@
 		if(QDELETED(A))
 			return
 	A.Bumped(src)
+
+/atom/movable/Exited(atom/movable/AM, atom/newLoc)
+	. = ..()
+	if(AM.area_sensitive_contents)
+		for(var/atom/movable/location as anything in get_nested_locs(src) + src)
+			LAZYREMOVE(location.area_sensitive_contents, AM.area_sensitive_contents)
+
+/atom/movable/Entered(atom/movable/AM, atom/oldLoc)
+	. = ..()
+	if(AM.area_sensitive_contents)
+		for(var/atom/movable/location as anything in get_nested_locs(src) + src)
+			LAZYADD(location.area_sensitive_contents, AM.area_sensitive_contents)
+
+/// See traits.dm. Use this in place of ADD_TRAIT.
+/atom/movable/proc/become_area_sensitive(trait_source = TRAIT_GENERIC)
+	if(!HAS_TRAIT(src, TRAIT_AREA_SENSITIVE))
+		RegisterSignal(src, SIGNAL_REMOVETRAIT(TRAIT_AREA_SENSITIVE), .proc/on_area_sensitive_trait_loss)
+		for(var/atom/movable/location as anything in get_nested_locs(src) + src)
+			LAZYADD(location.area_sensitive_contents, src)
+	ADD_TRAIT(src, TRAIT_AREA_SENSITIVE, trait_source)
+
+/atom/movable/proc/on_area_sensitive_trait_loss()
+	SIGNAL_HANDLER
+
+	UnregisterSignal(src, SIGNAL_REMOVETRAIT(TRAIT_AREA_SENSITIVE))
+	for(var/atom/movable/location as anything in get_nested_locs(src) + src)
+		LAZYREMOVE(location.area_sensitive_contents, src)
 
 ///Sets the anchored var and returns if it was sucessfully changed or not.
 /atom/movable/proc/set_anchored(anchorvalue)
@@ -554,7 +642,7 @@
 		var/area/old_area = get_area(oldloc)
 		var/area/destarea = get_area(destination)
 
-		loc = destination
+		update_loc(destination)
 		moving_diagonally = 0
 
 		if(!same_loc)
@@ -562,8 +650,6 @@
 				oldloc.Exited(src, destination)
 				if(old_area && old_area != destarea)
 					old_area.Exited(src, destination)
-			for(var/atom/movable/AM in oldloc)
-				AM.Uncrossed(src)
 			var/turf/oldturf = get_turf(oldloc)
 			var/turf/destturf = get_turf(destination)
 			var/old_z = (oldturf ? oldturf.z : null)
@@ -574,24 +660,19 @@
 			if(destarea && old_area != destarea)
 				destarea.Entered(src, oldloc)
 
-			for(var/atom/movable/AM in destination)
-				if(AM == src)
-					continue
-				AM.Crossed(src, oldloc)
-
 		Moved(oldloc, NONE, TRUE)
 		. = TRUE
 
 	//If no destination, move the atom into nullspace (don't do this unless you know what you're doing)
 	else
 		. = TRUE
+		var/atom/oldloc = loc
 		if (loc)
-			var/atom/oldloc = loc
 			var/area/old_area = get_area(oldloc)
 			oldloc.Exited(src, null)
 			if(old_area)
 				old_area.Exited(src, null)
-		loc = null
+		update_loc(null)
 
 /atom/movable/proc/onTransitZ(old_z,new_z)
 	SEND_SIGNAL(src, COMSIG_MOVABLE_Z_CHANGED, old_z, new_z)
@@ -891,17 +972,9 @@
 	. += "<option value='?_src_=holder;[HrefToken()];adminplayerobservefollow=[REF(src)]'>Follow</option>"
 	. += "<option value='?_src_=holder;[HrefToken()];admingetmovable=[REF(src)]'>Get</option>"
 
-/atom/movable/proc/ex_check(ex_id)
-	if(!ex_id)
-		return TRUE
-	LAZYINITLIST(acted_explosions)
-	if(ex_id in acted_explosions)
-		return FALSE
-	acted_explosions += ex_id
-	return TRUE
 
-/* 	Language procs
-*	Unless you are doing something very specific, these are the ones you want to use.
+/* Language procs
+* Unless you are doing something very specific, these are the ones you want to use.
 */
 
 /// Gets or creates the relevant language holder. For mindless atoms, gets the local one. For atom with mind, gets the mind one.
@@ -993,6 +1066,8 @@
 /atom/movable/proc/can_be_pulled(user, grab_state, force)
 	if(src == user || !isturf(loc))
 		return FALSE
+	if(SEND_SIGNAL(src, COMSIG_ATOM_CAN_BE_PULLED, user) & COMSIG_ATOM_CANT_PULL)
+		return FALSE
 	if(anchored || throwing)
 		return FALSE
 	if(force < (move_resist * MOVE_FORCE_PULL_RATIO))
@@ -1040,6 +1115,7 @@
 /atom/movable/vv_get_dropdown()
 	. = ..()
 	VV_DROPDOWN_OPTION(VV_HK_DEADCHAT_PLAYS, "Start/Stop Deadchat Plays")
+	VV_DROPDOWN_OPTION(VV_HK_ADD_FANTASY_AFFIX, "Add Fantasy Affix")
 
 /atom/movable/vv_do_topic(list/href_list)
 	. = ..()

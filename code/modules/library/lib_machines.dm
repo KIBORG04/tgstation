@@ -1,12 +1,12 @@
 /* Library Machines
  *
  * Contains:
- *		Borrowbook datum
- *		Library Public Computer
- *		Cachedbook datum
- *		Library Computer
- *		Library Scanner
- *		Book Binder
+ * Borrowbook datum
+ * Library Public Computer
+ * Cachedbook datum
+ * Library Computer
+ * Library Scanner
+ * Book Binder
  */
 
 
@@ -18,7 +18,7 @@
 	name = "library visitor console"
 	icon_state = "oldcomp"
 	icon_screen = "library"
-	icon_keyboard = "no_keyboard"
+	icon_keyboard = null
 	circuit = /obj/item/circuitboard/computer/libraryconsole
 	desc = "Checked out books MUST be returned on time."
 	var/screenstate = 0
@@ -172,7 +172,7 @@
 
 	icon_state = "oldcomp"
 	icon_screen = "library"
-	icon_keyboard = "no_keyboard"
+	icon_keyboard = null
 	circuit = /obj/item/circuitboard/computer/libraryconsole
 
 	var/screenstate = 0 // 0 - Main Menu, 1 - Inventory, 2 - Checked Out, 3 - Check Out a Book
@@ -185,7 +185,7 @@
 	var/list/inventory = list()
 	var/checkoutperiod = 5 // In minutes
 	var/obj/machinery/libraryscanner/scanner // Book scanner that will be used when uploading books to the Archive
-	var/page = 1	//current page of the external archives
+	var/page = 1 //current page of the external archives
 	var/printer_cooldown = 0
 	COOLDOWN_DECLARE(library_console_topic_cooldown)
 
@@ -517,7 +517,7 @@
 	icon_state = "bigscanner"
 	desc = "It servers the purpose of scanning stuff."
 	density = TRUE
-	var/obj/item/book/cache		// Last scanned book
+	var/obj/item/book/cache // Last scanned book
 
 /obj/machinery/libraryscanner/attackby(obj/O, mob/user, params)
 	if(istype(O, /obj/item/book))
@@ -526,7 +526,7 @@
 	else
 		return ..()
 
-/obj/machinery/libraryscanner/attack_hand(mob/user)
+/obj/machinery/libraryscanner/attack_hand(mob/user, list/modifiers)
 	. = ..()
 	if(.)
 		return

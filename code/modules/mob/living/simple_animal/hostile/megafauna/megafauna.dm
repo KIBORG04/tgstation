@@ -3,7 +3,7 @@
 	desc = "Attack the weak point for massive damage."
 	health = 1000
 	maxHealth = 1000
-	a_intent = INTENT_HARM
+	combat_mode = TRUE
 	sentience_type = SENTIENCE_BOSS
 	environment_smash = ENVIRONMENT_SMASH_RWALLS
 	mob_biotypes = MOB_ORGANIC|MOB_EPIC
@@ -11,7 +11,6 @@
 	light_range = 3
 	faction = list("mining", "boss")
 	weather_immunities = list("lava","ash")
-	is_flying_animal = TRUE
 	robust_searching = TRUE
 	ranged_ignores_vision = TRUE
 	stat_attack = DEAD
@@ -57,6 +56,7 @@
 
 /mob/living/simple_animal/hostile/megafauna/Initialize(mapload)
 	. = ..()
+	AddElement(/datum/element/simple_flying)
 	if(gps_name && true_spawn)
 		AddComponent(/datum/component/gps, gps_name)
 	ADD_TRAIT(src, TRAIT_NO_TELEPORT, MEGAFAUNA_TRAIT)
@@ -75,7 +75,7 @@
 		for(var/i = 1 to nest_range)
 			closest = get_step(closest, get_dir(closest, src))
 		forceMove(closest) // someone teleported out probably and the megafauna kept chasing them
-		target = null
+		LoseTarget()
 		return
 	return ..()
 
@@ -91,7 +91,7 @@
 		var/tab = "megafauna_kills"
 		if(crusher_kill)
 			tab = "megafauna_kills_crusher"
-		if(!elimination)	//used so the achievment only occurs for the last legion to die.
+		if(!elimination) //used so the achievment only occurs for the last legion to die.
 			grant_achievement(achievement_type, score_achievement_type, crusher_kill, force_grant)
 			SSblackbox.record_feedback("tally", tab, 1, "[initial(name)]")
 	return ..()
@@ -154,7 +154,7 @@
 /mob/living/simple_animal/hostile/megafauna/proc/SetRecoveryTime(buffer_time, ranged_buffer_time)
 	recovery_time = world.time + buffer_time
 	ranged_cooldown = world.time + buffer_time
-	if(ranged_buffer_time)
+	if(isnum(ranged_buffer_time))
 		ranged_cooldown = world.time + ranged_buffer_time
 
 /// Grants medals and achievements to surrounding players
@@ -179,16 +179,15 @@
 	name = "Megafauna Attack"
 	icon_icon = 'icons/mob/actions/actions_animal.dmi'
 	button_icon_state = ""
-	var/mob/living/simple_animal/hostile/megafauna/M
 	var/chosen_message
 	var/chosen_attack_num = 0
 
 /datum/action/innate/megafauna_attack/Grant(mob/living/L)
-	if(istype(L, /mob/living/simple_animal/hostile/megafauna))
-		M = L
-		return ..()
-	return FALSE
+	if(!ismegafauna(L))
+		return FALSE
+	return ..()
 
 /datum/action/innate/megafauna_attack/Activate()
-	M.chosen_attack = chosen_attack_num
-	to_chat(M, chosen_message)
+	var/mob/living/simple_animal/hostile/megafauna/fauna = owner
+	fauna.chosen_attack = chosen_attack_num
+	to_chat(fauna, chosen_message)

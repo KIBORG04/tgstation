@@ -15,14 +15,14 @@
 	var/poison_amount = 5
 	slot = ORGAN_SLOT_STOMACH_AID
 
-/obj/item/organ/cyberimp/chest/nutriment/on_life()
+/obj/item/organ/cyberimp/chest/nutriment/on_life(delta_time, times_fired)
 	if(synthesizing)
 		return
 
 	if(owner.nutrition <= hunger_threshold)
 		synthesizing = TRUE
 		to_chat(owner, "<span class='notice'>You feel less hungry...</span>")
-		owner.adjust_nutrition(50)
+		owner.adjust_nutrition(25 * delta_time)
 		addtimer(CALLBACK(src, .proc/synth_cool), 50)
 
 /obj/item/organ/cyberimp/chest/nutriment/proc/synth_cool()
@@ -55,7 +55,7 @@
 	COOLDOWN_DECLARE(reviver_cooldown)
 
 
-/obj/item/organ/cyberimp/chest/reviver/on_life()
+/obj/item/organ/cyberimp/chest/reviver/on_life(delta_time, times_fired)
 	if(reviving)
 		switch(owner.stat)
 			if(UNCONSCIOUS, HARD_CRIT)
@@ -122,6 +122,7 @@
 	Unlike regular jetpacks, this device has no stabilization system."
 	slot = ORGAN_SLOT_THRUSTERS
 	icon_state = "imp_jetpack"
+	base_icon_state = "imp_jetpack"
 	implant_overlay = null
 	implant_color = null
 	actions_types = list(/datum/action/item_action/organ_action/toggle)
@@ -166,13 +167,11 @@
 		if(!silent)
 			to_chat(owner, "<span class='notice'>You turn your thrusters set off.</span>")
 		on = FALSE
-	update_icon()
+	update_appearance()
 
 /obj/item/organ/cyberimp/chest/thrusters/update_icon_state()
-	if(on)
-		icon_state = "imp_jetpack-on"
-	else
-		icon_state = "imp_jetpack"
+	icon_state = "[base_icon_state][on ? "-on" : null]"
+	return ..()
 
 /obj/item/organ/cyberimp/chest/thrusters/proc/move_react()
 	if(!on)//If jet dont work, it dont work
@@ -215,9 +214,9 @@
 		return TRUE
 
 	// Priority 3: use internals tank.
-	var/obj/item/tank/I = owner.internal
-	if(I && I.air_contents && I.air_contents.total_moles() > num)
-		var/datum/gas_mixture/removed = I.air_contents.remove(num)
+	var/datum/gas_mixture/internal_mix = owner.internal.return_air()
+	if(internal_mix && internal_mix.total_moles() > num)
+		var/datum/gas_mixture/removed = internal_mix.remove(num)
 		if(removed.total_moles() > 0.005)
 			T.assume_air(removed)
 			ion_trail.generate_effect()

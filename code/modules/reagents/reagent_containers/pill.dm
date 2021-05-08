@@ -42,7 +42,7 @@
 	else
 		M.visible_message("<span class='danger'>[user] attempts to force [M] to [apply_method] [src].</span>", \
 							"<span class='userdanger'>[user] attempts to force you to [apply_method] [src].</span>")
-		if(!do_mob(user, M))
+		if(!do_mob(user, M, CHEM_INTERACT_DELAY(3 SECONDS, user)))
 			return FALSE
 		M.visible_message("<span class='danger'>[user] forces [M] to [apply_method] [src].</span>", \
 							"<span class='userdanger'>[user] forces you to [apply_method] [src].</span>")
@@ -262,7 +262,7 @@
 ///Black and white pills that spawn in maintenance and have random reagent contents
 /obj/item/reagent_containers/pill/maintenance
 	name = "maintenance pill"
-	desc = "A strange pill found in the depths of maintenance"
+	desc = "A strange pill found in the depths of maintenance."
 	icon_state = "pill21"
 	var/static/list/names = list("maintenance pill", "floor pill", "mystery pill", "suspicious pill", "strange pill", "lucky pill", "ominous pill", "eerie pill")
 	var/static/list/descs = list("Your feeling is telling you no, but...","Drugs are expensive, you can't afford not to eat any pills that you find."\
@@ -275,10 +275,10 @@
 	if(prob(30))
 		desc = pick(descs)
 
-/obj/item/reagent_containers/pill/maintenance/on_consumption(mob/M, mob/user)
+/obj/item/reagent_containers/pill/maintenance/achievement/on_consumption(mob/M, mob/user)
 	. = ..()
 
-	M.client?.give_award(MAINTENANCE_PILL_SCORE, M)
+	M.client?.give_award(/datum/award/score/maintenance_pill, M)
 
 /obj/item/reagent_containers/pill/potassiodide
 	name = "potassium iodide pill"

@@ -122,7 +122,7 @@
 
 	SEND_SIGNAL(src, COMSIG_GRENADE_DETONATE, lanced_by)
 	if(ex_dev || ex_heavy || ex_light || ex_flame)
-		explosion(loc, ex_dev, ex_heavy, ex_light, flame_range = ex_flame)
+		explosion(src, ex_dev, ex_heavy, ex_light, ex_flame)
 
 /obj/item/grenade/proc/update_mob()
 	if(ismob(loc))
@@ -163,8 +163,8 @@
 		if(det_time == previous_time)
 			det_time = 50
 
-/obj/item/grenade/attack_paw(mob/user)
-	return attack_hand(user)
+/obj/item/grenade/attack_paw(mob/user, list/modifiers)
+	return attack_hand(user, modifiers)
 
 /obj/item/grenade/hit_reaction(mob/living/carbon/human/owner, atom/movable/hitby, attack_text = "the attack", final_block_chance = 0, damage = 0, attack_type = MELEE_ATTACK)
 	var/obj/projectile/P = hitby

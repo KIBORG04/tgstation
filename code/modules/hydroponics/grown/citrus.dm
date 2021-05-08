@@ -99,7 +99,7 @@
 	lifespan = 55
 	endurance = 45
 	yield = 4
-	reagents_add = list(/datum/reagent/consumable/nutriment = 0.05)
+	reagents_add = list(/datum/reagent/consumable/nutriment = 0.05, /datum/reagent/fuel = 0.05)
 
 /obj/item/food/grown/firelemon
 	seed = /obj/item/seeds/firelemon
@@ -113,9 +113,6 @@
 /obj/item/food/grown/firelemon/attack_self(mob/living/user)
 	user.visible_message("<span class='warning'>[user] primes [src]!</span>", "<span class='userdanger'>You prime [src]!</span>")
 	log_bomber(user, "primed a", src, "for detonation")
-	if(iscarbon(user))
-		var/mob/living/carbon/C = user
-		C.throw_mode_on()
 	icon_state = "firelemon_active"
 	playsound(loc, 'sound/weapons/armbomb.ogg', 75, TRUE, -3)
 	addtimer(CALLBACK(src, .proc/detonate), rand(10, 60))
@@ -136,23 +133,23 @@
 	switch(seed.potency) //Combustible lemons are alot like IEDs, lots of flame, very little bang.
 		if(0 to 30)
 			update_mob()
-			explosion(src.loc,-1,-1,2, flame_range = 1)
+			explosion(src, devastation_range = -1, heavy_impact_range = -1, light_impact_range = 2, flame_range = 1)
 			qdel(src)
 		if(31 to 50)
 			update_mob()
-			explosion(src.loc,-1,-1,2, flame_range = 2)
+			explosion(src, devastation_range = -1, heavy_impact_range = -1, light_impact_range = 2, flame_range = 2)
 			qdel(src)
 		if(51 to 70)
 			update_mob()
-			explosion(src.loc,-1,-1,2, flame_range = 3)
+			explosion(src, devastation_range = -1, heavy_impact_range = -1, light_impact_range = 2, flame_range = 3)
 			qdel(src)
 		if(71 to 90)
 			update_mob()
-			explosion(src.loc,-1,-1,2, flame_range = 4)
+			explosion(src, devastation_range = -1, heavy_impact_range = -1, light_impact_range = 2, flame_range = 4)
 			qdel(src)
 		else
 			update_mob()
-			explosion(src.loc,-1,-1,2, flame_range = 5)
+			explosion(src, devastation_range = -1, heavy_impact_range = -1, light_impact_range = 2, flame_range = 5)
 			qdel(src)
 
 //3D Orange

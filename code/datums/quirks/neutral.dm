@@ -68,7 +68,7 @@
 		var/datum/species/species = H.dna.species
 		if(initial(species.liked_food) & MEAT)
 			species.liked_food |= MEAT
-		if(!initial(species.disliked_food) & MEAT)
+		if(!(initial(species.disliked_food) & MEAT))
 			species.disliked_food &= ~MEAT
 
 /datum/quirk/snob
@@ -240,7 +240,7 @@
 		W.hairstyle = pick(GLOB.hairstyles_list - "Bald")
 	else
 		W.hairstyle = old_hair
-	W.update_icon()
+	W.update_appearance()
 	var/list/slots = list (
 		"head" = ITEM_SLOT_HEAD,
 		"backpack" = ITEM_SLOT_BACKPACK,

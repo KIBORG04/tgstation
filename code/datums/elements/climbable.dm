@@ -23,7 +23,7 @@
 	RegisterSignal(target, COMSIG_MOUSEDROPPED_ONTO, .proc/mousedrop_receive)
 	RegisterSignal(target, COMSIG_ATOM_BUMPED, .proc/try_speedrun)
 
-/datum/element/climbable/Detach(datum/target, force)
+/datum/element/climbable/Detach(datum/target)
 	UnregisterSignal(target, list(COMSIG_ATOM_ATTACK_HAND, COMSIG_PARENT_EXAMINE, COMSIG_MOUSEDROPPED_ONTO, COMSIG_ATOM_BUMPED))
 	return ..()
 
@@ -31,7 +31,7 @@
 	SIGNAL_HANDLER
 
 	if(can_climb(source, user))
-		examine_texts += "<span class='notice'>[source] looks climbable</span>"
+		examine_texts += "<span class='notice'>[source] looks climbable.</span>"
 
 /datum/element/climbable/proc/can_climb(atom/source, mob/user)
 	return TRUE
@@ -46,7 +46,7 @@
 		user.changeNext_move(CLICK_CD_MELEE)
 		user.do_attack_animation(climbed_thing)
 		structure_climber.Paralyze(40)
-		structure_climber.visible_message("<span class='warning'>[structure_climber] is knocked off [climbed_thing].</span>", "<span class='warning'>You're knocked off [climbed_thing]!</span>", "<span class='warning'>You see [structure_climber] get knocked off [climbed_thing].</span>")
+		structure_climber.visible_message("<span class='warning'>[structure_climber] is knocked off [climbed_thing].</span>", "<span class='warning'>You're knocked off [climbed_thing]!</span>", "<span class='hear'>You hear a cry from [structure_climber], followed by a slam.</span>")
 
 
 /datum/element/climbable/proc/climb_structure(atom/climbed_thing, mob/living/user)
@@ -56,13 +56,15 @@
 	user.visible_message("<span class='warning'>[user] starts climbing onto [climbed_thing].</span>", \
 								"<span class='notice'>You start climbing onto [climbed_thing]...</span>")
 	var/adjusted_climb_time = climb_time
+	var/adjusted_climb_stun = climb_stun
 	if(HAS_TRAIT(user, TRAIT_HANDS_BLOCKED)) //climbing takes twice as long without help from the hands.
 		adjusted_climb_time *= 2
 	if(isalien(user))
 		adjusted_climb_time *= 0.25 //aliens are terrifyingly fast
 	if(HAS_TRAIT(user, TRAIT_FREERUNNING)) //do you have any idea how fast I am???
 		adjusted_climb_time *= 0.8
-	LAZYADDASSOC(current_climbers, climbed_thing, user)
+		adjusted_climb_stun *= 0.8
+	LAZYADDASSOCLIST(current_climbers, climbed_thing, user)
 	if(do_after(user, adjusted_climb_time, climbed_thing))
 		if(QDELETED(climbed_thing)) //Checking if structure has been destroyed
 			return
@@ -70,8 +72,8 @@
 			user.visible_message("<span class='warning'>[user] climbs onto [climbed_thing].</span>", \
 								"<span class='notice'>You climb onto [climbed_thing].</span>")
 			log_combat(user, climbed_thing, "climbed onto")
-			if(climb_stun)
-				user.Stun(climb_stun)
+			if(adjusted_climb_stun)
+				user.Stun(adjusted_climb_stun)
 		else
 			to_chat(user, "<span class='warning'>You fail to climb onto [climbed_thing].</span>")
 	LAZYREMOVEASSOC(current_climbers, climbed_thing, user)

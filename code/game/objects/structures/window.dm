@@ -24,7 +24,7 @@
 	var/glass_type = /obj/item/stack/sheet/glass
 	var/glass_amount = 1
 	var/mutable_appearance/crack_overlay
-	var/real_explosion_block	//ignore this, just use explosion_block
+	var/real_explosion_block //ignore this, just use explosion_block
 	var/breaksound = "shatter"
 	var/knocksound = 'sound/effects/Glassknock.ogg'
 	var/bashsound = 'sound/effects/Glassbash.ogg'
@@ -67,11 +67,18 @@
 
 	flags_1 |= ALLOW_DARK_PAINTS_1
 	RegisterSignal(src, COMSIG_OBJ_PAINTED, .proc/on_painted)
+	AddElement(/datum/element/atmos_sensitive, mapload)
+
+	var/static/list/loc_connections = list(
+		COMSIG_ATOM_EXIT = .proc/on_exit,
+	)
+
+	if (flags_1 & ON_BORDER_1)
+		AddElement(/datum/element/connect_loc, src, loc_connections)
 
 /obj/structure/window/ComponentInitialize()
 	. = ..()
-	AddComponent(/datum/component/simple_rotation,ROTATION_ALTCLICK | ROTATION_CLOCKWISE | ROTATION_COUNTERCLOCKWISE | ROTATION_VERBS ,null,CALLBACK(src, .proc/can_be_rotated),CALLBACK(src,.proc/after_rotation))
-	AddElement(/datum/element/atmos_sensitive)
+	AddComponent(/datum/component/simple_rotation, ROTATION_ALTCLICK | ROTATION_CLOCKWISE | ROTATION_COUNTERCLOCKWISE | ROTATION_VERBS ,null,CALLBACK(src, .proc/can_be_rotated),CALLBACK(src,.proc/after_rotation))
 
 /obj/structure/window/rcd_vals(mob/user, obj/item/construction/rcd/the_rcd)
 	switch(the_rcd.mode)
@@ -117,13 +124,18 @@
 
 	return TRUE
 
-/obj/structure/window/CheckExit(atom/movable/O, turf/target)
-	if(istype(O) && (O.pass_flags & PASSGLASS))
-		return TRUE
-	if(get_dir(O.loc, target) == dir)
-		return FALSE
-	return TRUE
+/obj/structure/window/proc/on_exit(datum/source, atom/movable/leaving, atom/new_location)
+	SIGNAL_HANDLER
 
+	if (istype(leaving) && (leaving.pass_flags & pass_flags_self))
+		return
+
+	if (fulltile)
+		return
+
+	if(get_dir(leaving.loc, new_location) == dir && density)
+		leaving.Bump(src)
+		return COMPONENT_ATOM_BLOCK_EXIT
 
 /obj/structure/window/attack_tk(mob/user)
 	user.changeNext_move(CLICK_CD_MELEE)
@@ -138,7 +150,7 @@
 		return
 	. = ..()
 
-/obj/structure/window/attack_hand(mob/user)
+/obj/structure/window/attack_hand(mob/living/user, list/modifiers)
 	. = ..()
 	if(.)
 		return
@@ -146,7 +158,7 @@
 		return
 	user.changeNext_move(CLICK_CD_MELEE)
 
-	if(user.a_intent != INTENT_HARM)
+	if(!user.combat_mode)
 		user.visible_message("<span class='notice'>[user] knocks on [src].</span>", \
 			"<span class='notice'>You knock on [src].</span>")
 		playsound(src, knocksound, 50, TRUE)
@@ -155,27 +167,27 @@
 			"<span class='warning'>You bash [src]!</span>")
 		playsound(src, bashsound, 100, TRUE)
 
-/obj/structure/window/attack_paw(mob/user)
-	return attack_hand(user)
+/obj/structure/window/attack_paw(mob/user, list/modifiers)
+	return attack_hand(user, modifiers)
 
-/obj/structure/window/attack_generic(mob/user, damage_amount = 0, damage_type = BRUTE, damage_flag = 0, sound_effect = 1)	//used by attack_alien, attack_animal, and attack_slime
+/obj/structure/window/attack_generic(mob/user, damage_amount = 0, damage_type = BRUTE, damage_flag = 0, sound_effect = 1) //used by attack_alien, attack_animal, and attack_slime
 	if(!can_be_reached(user))
 		return
 	..()
 
 /obj/structure/window/attackby(obj/item/I, mob/living/user, params)
 	if(!can_be_reached(user))
-		return 1 //skip the afterattack
+		return TRUE //skip the afterattack
 
 	add_fingerprint(user)
 
-	if(I.tool_behaviour == TOOL_WELDER && user.a_intent == INTENT_HELP)
+	if(I.tool_behaviour == TOOL_WELDER)
 		if(obj_integrity < max_integrity)
-			if(!I.tool_start_check(user, amount=0))
+			if(!I.tool_start_check(user, amount = 0))
 				return
 
 			to_chat(user, "<span class='notice'>You begin repairing [src]...</span>")
-			if(I.use_tool(src, user, 40, volume=50))
+			if(I.use_tool(src, user, 40, volume = 50))
 				obj_integrity = max_integrity
 				update_nearby_icons()
 				to_chat(user, "<span class='notice'>You repair [src].</span>")
@@ -287,7 +299,7 @@
 /obj/structure/window/proc/on_painted(is_dark_color)
 	SIGNAL_HANDLER
 
-	if (is_dark_color)
+	if (is_dark_color && fulltile) //Opaque directional windows restrict vision even in directions they are not placed in, please don't do this
 		set_opacity(255)
 	else
 		set_opacity(initial(opacity))
@@ -312,28 +324,26 @@
 
 //This proc is used to update the icons of nearby windows.
 /obj/structure/window/proc/update_nearby_icons()
-	update_icon()
+	update_appearance()
 	if(smoothing_flags & (SMOOTH_CORNERS|SMOOTH_BITMASK))
 		QUEUE_SMOOTH_NEIGHBORS(src)
 
 //merges adjacent full-tile windows into one
 /obj/structure/window/update_overlays()
 	. = ..()
-	if(!QDELETED(src))
-		if(!fulltile)
-			return
+	if(QDELETED(src) || !fulltile)
+		return
 
-		var/ratio = obj_integrity / max_integrity
-		ratio = CEILING(ratio*4, 1) * 25
+	if(smoothing_flags & (SMOOTH_CORNERS|SMOOTH_BITMASK))
+		QUEUE_SMOOTH(src)
 
-		if(smoothing_flags & (SMOOTH_CORNERS|SMOOTH_BITMASK))
-			QUEUE_SMOOTH(src)
-
-		cut_overlay(crack_overlay)
-		if(ratio > 75)
-			return
-		crack_overlay = mutable_appearance('icons/obj/structures.dmi', "damage[ratio]", -(layer+0.1))
-		. += crack_overlay
+	var/ratio = obj_integrity / max_integrity
+	ratio = CEILING(ratio*4, 1) * 25
+	cut_overlay(crack_overlay)
+	if(ratio > 75)
+		return
+	crack_overlay = mutable_appearance('icons/obj/structures.dmi', "damage[ratio]", -(layer+0.1))
+	. += crack_overlay
 
 /obj/structure/window/should_atmos_process(datum/gas_mixture/air, exposed_temperature)
 	return exposed_temperature > T0C + heat_resistance
@@ -344,7 +354,7 @@
 /obj/structure/window/get_dumping_location(obj/item/storage/source,mob/user)
 	return null
 
-/obj/structure/window/CanAStarPass(ID, to_dir)
+/obj/structure/window/CanAStarPass(obj/item/card/id/ID, to_dir, atom/movable/caller)
 	if(!density)
 		return TRUE
 	if(fulltile || (dir == to_dir))
@@ -384,51 +394,64 @@
 
 //this is shitcode but all of construction is shitcode and needs a refactor, it works for now
 //If you find this like 4 years later and construction still hasn't been refactored, I'm so sorry for this //Adding a timestamp, I found this in 2020, I hope it's from this year -Lemon
-/obj/structure/window/reinforced/attackby(obj/item/I, mob/living/user, params)
+//2021 AND STILLLL GOING STRONG
+/obj/structure/window/reinforced/attackby_secondary(obj/item/tool, mob/user, params)
 	switch(state)
 		if(RWINDOW_SECURE)
-			if(I.tool_behaviour == TOOL_WELDER && user.a_intent == INTENT_HARM)
-				user.visible_message("<span class='notice'>[user] holds \the [I] to the security screws on \the [src]...</span>",
-										"<span class='notice'>You begin heating the security screws on \the [src]...</span>")
-				if(I.use_tool(src, user, 150, volume = 100))
-					to_chat(user, "<span class='notice'>The security bolts are glowing white hot and look ready to be removed.</span>")
+			if(tool.tool_behaviour == TOOL_WELDER)
+				var/obj/item/weldingtool/welder = tool
+				if(welder.isOn())
+					user.visible_message("<span class='notice'>[user] holds \the [tool] to the security screws on \the [src]...</span>",
+						"<span class='notice'>You begin heating the security screws on \the [src]...</span>")
+				if(tool.use_tool(src, user, 150, volume = 100))
+					to_chat(user, "<span class='notice'>The security screws are glowing white hot and look ready to be removed.</span>")
 					state = RWINDOW_BOLTS_HEATED
 					addtimer(CALLBACK(src, .proc/cool_bolts), 300)
-				return
+			else if (tool.tool_behaviour)
+				to_chat(user, "<span class='warning'>The security screws need to be heated first!</span>")
+
 		if(RWINDOW_BOLTS_HEATED)
-			if(I.tool_behaviour == TOOL_SCREWDRIVER)
+			if(tool.tool_behaviour == TOOL_SCREWDRIVER)
 				user.visible_message("<span class='notice'>[user] digs into the heated security screws and starts removing them...</span>",
 										"<span class='notice'>You dig into the heated screws hard and they start turning...</span>")
-				if(I.use_tool(src, user, 50, volume = 50))
+				if(tool.use_tool(src, user, 50, volume = 50))
 					state = RWINDOW_BOLTS_OUT
 					to_chat(user, "<span class='notice'>The screws come out, and a gap forms around the edge of the pane.</span>")
-				return
+			else if (tool.tool_behaviour)
+				to_chat(user, "<span class='warning'>The security screws need to be removed first!</span>")
+
 		if(RWINDOW_BOLTS_OUT)
-			if(I.tool_behaviour == TOOL_CROWBAR)
-				user.visible_message("<span class='notice'>[user] wedges \the [I] into the gap in the frame and starts prying...</span>",
-										"<span class='notice'>You wedge \the [I] into the gap in the frame and start prying...</span>")
-				if(I.use_tool(src, user, 40, volume = 50))
+			if(tool.tool_behaviour == TOOL_CROWBAR)
+				user.visible_message("<span class='notice'>[user] wedges \the [tool] into the gap in the frame and starts prying...</span>",
+										"<span class='notice'>You wedge \the [tool] into the gap in the frame and start prying...</span>")
+				if(tool.use_tool(src, user, 40, volume = 50))
 					state = RWINDOW_POPPED
 					to_chat(user, "<span class='notice'>The panel pops out of the frame, exposing some thin metal bars that looks like they can be cut.</span>")
-				return
+			else if (tool.tool_behaviour)
+				to_chat(user, "<span class='warning'>The gap needs to be pried first!</span>")
+
 		if(RWINDOW_POPPED)
-			if(I.tool_behaviour == TOOL_WIRECUTTER)
+			if(tool.tool_behaviour == TOOL_WIRECUTTER)
 				user.visible_message("<span class='notice'>[user] starts cutting the exposed bars on \the [src]...</span>",
 										"<span class='notice'>You start cutting the exposed bars on \the [src]</span>")
-				if(I.use_tool(src, user, 20, volume = 50))
+				if(tool.use_tool(src, user, 20, volume = 50))
 					state = RWINDOW_BARS_CUT
 					to_chat(user, "<span class='notice'>The panels falls out of the way exposing the frame bolts.</span>")
-				return
+			else if (tool.tool_behaviour)
+				to_chat(user, "<span class='warning'>The bars need to be cut first!</span>")
+
 		if(RWINDOW_BARS_CUT)
-			if(I.tool_behaviour == TOOL_WRENCH)
+			if(tool.tool_behaviour == TOOL_WRENCH)
 				user.visible_message("<span class='notice'>[user] starts unfastening \the [src] from the frame...</span>",
 					"<span class='notice'>You start unfastening the bolts from the frame...</span>")
-				if(I.use_tool(src, user, 40, volume = 50))
+				if(tool.use_tool(src, user, 40, volume = 50))
 					to_chat(user, "<span class='notice'>You unscrew the bolts from the frame and the window pops loose.</span>")
 					state = WINDOW_OUT_OF_FRAME
 					set_anchored(FALSE)
-				return
-	return ..()
+			else if (tool.tool_behaviour)
+				to_chat(user, "<span class='warning'>The bolts need to be loosened first!</span>")
+
+	return SECONDARY_ATTACK_CANCEL_ATTACK_CHAIN
 
 /obj/structure/window/proc/cool_bolts()
 	if(state == RWINDOW_BOLTS_HEATED)
@@ -474,7 +497,7 @@
 	glass_type = /obj/item/stack/sheet/plasmaglass
 	rad_insulation = RAD_NO_INSULATION
 
-/obj/structure/window/plasma/ComponentInitialize()
+/obj/structure/window/plasma/Initialize(mapload, direct)
 	. = ..()
 	RemoveElement(/datum/element/atmos_sensitive)
 
@@ -511,12 +534,14 @@
 	explosion_block = 2
 	glass_type = /obj/item/stack/sheet/plasmarglass
 
+/obj/structure/window/plasma/reinforced/BlockSuperconductivity()
+	return TRUE
 //entirely copypasted code
 //take this out when construction is made a component or otherwise modularized in some way
 /obj/structure/window/plasma/reinforced/attackby(obj/item/I, mob/living/user, params)
 	switch(state)
 		if(RWINDOW_SECURE)
-			if(I.tool_behaviour == TOOL_WELDER && user.a_intent == INTENT_HARM)
+			if(I.tool_behaviour == TOOL_WELDER && user.combat_mode)
 				user.visible_message("<span class='notice'>[user] holds \the [I] to the security screws on \the [src]...</span>",
 										"<span class='notice'>You begin heating the security screws on \the [src]...</span>")
 				if(I.use_tool(src, user, 180, volume = 100))
@@ -762,7 +787,7 @@
 
 /obj/structure/window/paperframe/Initialize()
 	. = ..()
-	update_icon()
+	update_appearance()
 
 /obj/structure/window/paperframe/examine(mob/user)
 	. = ..()
@@ -774,33 +799,33 @@
 	for (var/i in 1 to rand(1,4))
 		. += new /obj/item/paper/natural(location)
 
-/obj/structure/window/paperframe/attack_hand(mob/user)
+/obj/structure/window/paperframe/attack_hand(mob/living/user, list/modifiers)
 	. = ..()
 	if(.)
 		return
-	if(user.a_intent == INTENT_HARM)
-		take_damage(4,BRUTE,MELEE, 0)
+	if(user.combat_mode)
+		take_damage(4, BRUTE, MELEE, 0)
 		if(!QDELETED(src))
-			update_icon()
+			update_appearance()
+
+/obj/structure/window/paperframe/update_appearance(updates)
+	. = ..()
+	set_opacity(obj_integrity >= max_integrity)
 
 /obj/structure/window/paperframe/update_icon()
-	if(obj_integrity < max_integrity)
-		cut_overlay(paper)
-		add_overlay(torn)
-		set_opacity(FALSE)
-	else
-		cut_overlay(torn)
-		add_overlay(paper)
-		set_opacity(TRUE)
+	. = ..()
 	if(smoothing_flags & (SMOOTH_CORNERS|SMOOTH_BITMASK))
 		QUEUE_SMOOTH(src)
 
+/obj/structure/window/paperframe/update_overlays()
+	. = ..()
+	. += (obj_integrity < max_integrity) ? torn : paper
 
-/obj/structure/window/paperframe/attackby(obj/item/W, mob/user)
+/obj/structure/window/paperframe/attackby(obj/item/W, mob/living/user)
 	if(W.get_temperature())
 		fire_act(W.get_temperature())
 		return
-	if(user.a_intent == INTENT_HARM)
+	if(user.combat_mode)
 		return ..()
 	if(istype(W, /obj/item/paper) && obj_integrity < max_integrity)
 		user.visible_message("<span class='notice'>[user] starts to patch the holes in \the [src].</span>")
@@ -809,17 +834,17 @@
 			qdel(W)
 			user.visible_message("<span class='notice'>[user] patches some of the holes in \the [src].</span>")
 			if(obj_integrity == max_integrity)
-				update_icon()
+				update_appearance()
 			return
 	..()
-	update_icon()
+	update_appearance()
 
 /obj/structure/window/bronze
 	name = "brass window"
 	desc = "A paper-thin pane of translucent yet reinforced brass. Nevermind, this is just weak bronze!"
 	icon = 'icons/obj/smooth_structures/clockwork_window.dmi'
 	icon_state = "clockwork_window_single"
-	glass_type = /obj/item/stack/tile/bronze
+	glass_type = /obj/item/stack/sheet/bronze
 
 /obj/structure/window/bronze/unanchored
 	anchored = FALSE
