@@ -248,3 +248,26 @@
   - refactor: is_flying_animal var is now an element!
   - refactor: pet bonuses are now an element
   - admin: Added fantasy affixes to the VV dropdown for items!
+2021-05-09:
+  BootlegBow:
+  - bugfix: flypeople no longer dislike moffins
+  Celotajs, ike709:
+  - code_imp: ike709's code improvements from BeeStation have been ported.
+  InsaneRed:
+  - bugfix: Properly fixes the stray extuingisher cabinet in deltastation.
+  - bugfix: Fixes the lack of ai cameras in drone rooms on tram and metastation.
+  JohnFulpWillard:
+  - bugfix: Blood cult's blood beam no longer sticks to your hand, and now fires!
+  - bugfix: Blood cultists can no longer walk out of a blood beam to avoid being stunned.
+  Timberpoes:
+  - refactor: Rewrite the way we handle which roles get assigned with playtime tracking.
+  - bugfix: Players who get MMI'd and put into borgs or AIs mid-shift now gain job
+      playtime tracking towards Silicon roles instead.
+  YakumoChen:
+  - imageadd: Fixes magic shoes and gives them a magical twinkling star decal.
+  dragomagol:
+  - rscadd: a new TGUI interface for sentience fun balloons
+  - code_imp: added a pop_sound_effect variable to customize sentience fun balloons
+  - code_imp: moved the arena shuttle's area and effects to shuttles.dm
+  ninjanomnom:
+  - rscadd: New station trait where Pun Pun starts angry, armed, and ready for a fight.
